@@ -2,10 +2,7 @@
 
 RAnking Markers for CEll Segmentation
 
-<object data="methods_fig.pdf" type="application/pdf">
-    <embed src="methods_fig.pdf">
-    </embed>
-</object>
+![RAMCES Figure](ramces_fig.png)
 
 ## Using RAMCES to output marker rankings and weighted images
 
