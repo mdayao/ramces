@@ -110,7 +110,13 @@ There are two items that RAMCES outputs when using the `rank_markers.py` script:
 
 #### Data
 
-A small demo dataset can be found in the `demo/` directory. There are 19 distinct proteins present in this dataset.
+A small demo dataset can be found in the `demo/` directory. There are 19 distinct markers of interest in this dataset. To output marker rankings and scores from RAMCES, run the following:
+
+```
+python rank_markers.py --data-dir ./demo/data --channels ./demo/channels.csv --num-cycles 7 --num-channels-per-cycle 4 --rank-path ./demo/ranking.csv
+```
+
+This will output the `ranking.csv` file in the `demo/` directory, which gives the scores given to each marker in the dataset.
 
 ## Training your own models
 
