@@ -19,18 +19,11 @@ cd ramces
 
 RAMCES requires `python (>=3.7)`. We *highly* recommend creating a separate **conda** environment to use RAMCES.
 
-You can use the `environment.yml` or `requirements.txt` file to create your environment by doing either of the following:
+You can use the `environment.yml` file to create your environment by doing either of the following:
 
 ```
 conda env create -f environment.yml
 conda activate ramces
-
-OR
-
-# without conda
-python -m venv ramces # Python 3 required
-source ramces/bin/activate
-pip install -r requirements.txt # pip must be installed
 ```
 
 Alternatively, the required packages are listed below. These can be installed via `conda` or `pip`. 
@@ -40,6 +33,7 @@ numpy (>=1.18.1)
 pandas (>=1.0.0)
 pytorch  (>=1.0.0)
 torchvision (>=0.2.2)
+cudatoolkit (>=10.2)
 opencv (>=3.4.2)
 pywavelets (>=1.1.1)
 tifffile (>=2021.2.26)
