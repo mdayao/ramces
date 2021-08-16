@@ -92,25 +92,21 @@ There are two items that RAMCES outputs when using the `rank_markers.py` script:
     
     The script will output a csv file that gives the scores (between 0 and 1) for each marker. The higher the score, the more confident RAMCES is that the marker is suitable for cell segmentation. The filename/path must be specified in the `--rank-path` argument.
 
-2. Weighted images (`--create-images`, `--output-weighted`, optional)
+2. Weighted images (`--create-images`, `--num-weighted`, `--output-weighted`, optional)
 
-    **NOTE: This functionality is not available yet. A future update of this repository will include this.**
-
-    If the `--create-images` flag is set, then the script will output images that combine the top ranked membrane markers, weighted by the scores given by RAMCES. The number of top ranked markers to use is given by the `--num-weighted` argument. The files are saved to the directory specified by the `--output-weighted` arugment. 
+    If the `--create-images` flag is set, then the script will output images that combine the top `n=num-weighted` ranked membrane markers, weighted by the scores given by RAMCES. The number of top ranked markers to use is given by the `--num-weighted` argument. The files are saved to the directory specified by the `--output-weighted` argument. The `--exclude` argument is also available to specify the rank of any markers that you wish to exclude from the combined weighted images (which may be useful if there are markers that are ranked highly by RAMCES but are unsuitable to use for segmentation).
 
 ### Demo on CODEX data
 
 [//]: # (instructions, expected output, expected run time for demo)
 
-#### Data
-
-A small demo dataset can be found in the `demo/` directory. There are 19 distinct markers of interest in this dataset. To output marker rankings and scores from RAMCES, run the following:
+A small demo dataset can be found in the `demo/` directory. There are 19 distinct markers of interest in this dataset. To output marker rankings and scores from RAMCES and save the combined weighted images for the top 3 markers, run the following:
 
 ```
-python rank_markers.py --data-dir ./demo/data --channels ./demo/channels.csv --num-cycles 7 --num-channels-per-cycle 4 --rank-path ./demo/ranking.csv
+python rank_markers.py --data-dir ./demo/data --channels ./demo/channels.csv --num-cycles 7 --num-channels-per-cycle 4 --rank-path ./demo/ranking.csv --create-images --num-weighted 3 --output-weighted ./demo/output --exclude 1
 ```
 
-This will output the `ranking.csv` file in the `demo/` directory, which gives the scores given to each marker in the dataset.
+This will output the `ranking.csv` file in the `demo/` directory, which gives the scores given to each marker in the dataset. The output images will be saved in `demo/output/`. Note that we have used the `--exclude` argument here to exclude the top-ranked marker in the output weighted image.
 
 ## Training your own models
 
