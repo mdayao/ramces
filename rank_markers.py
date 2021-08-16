@@ -39,14 +39,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model-path', help = 'path to trained model to rank markers. Does not need to be specified if --no-ranking is set.', default = './models/trained_model.h5')
 parser.add_argument('-d', '--data-dir', help = 'path to directory with image data. Each image file should represent a SINGLE channel, with the file name in the required format as detailed on github.com/mdayao/ramces.')
 parser.add_argument('--channels', help = 'path to file indicating which channels to use and their names. See github.com/mdayao/ramces for details on how to format this file.', required = True)
-parser.add_argument('--num-cycles', help = 'the number of cycles present in the data', required = True)
-parser.add_argument('--num-channels-per-cycle', help = 'the number of channels per cycle. For example, if there are 10 cycles with 3 channels each, then we would expect a total of 30 channels.', required = True)
+parser.add_argument('--num-cycles', type=int, help = 'the number of cycles present in the data', required = True)
+parser.add_argument('--num-channels-per-cycle', type=int, help = 'the number of channels per cycle. For example, if there are 10 cycles with 3 channels each, then we would expect a total of 30 channels.', required = True)
 parser.add_argument('--no-ranking', help = 'set this flag if ranking has already been calculated. If this is set, then --model-pathargument does not need to be specified', action = 'store_true')
 parser.add_argument('-r', '--rank-path', help = "path to file where marker ranking is to be saved/where marker ranking is saved (if ranking has already been performed). IMPORTANT: the file extension should be '.csv'", required = True)
 
 # Weighted image arguments
 parser.add_argument('--create-images', help = 'set this flag to create weighted images based on the top --num_weighted markers. If this flag is set, the --num-weighted argument must be specified.', action = 'store_true')
-parser.add_argument('--num-weighted', help = 'number of top-ranked markers to use to create weighted images', default = 3)
+parser.add_argument('--num-weighted', type=int, help = 'number of top-ranked markers to use to create weighted images', default = 3)
 parser.add_argument('--output-weighted', help = 'path to directory to output weighted images. Must be specified if the --create-images flag is set.')
 
 args = parser.parse_args()
@@ -82,9 +82,11 @@ if args.no_ranking is False: # Ranking has not been calculated
         t = int(re.findall(pat_t, image_file)[0]) # cycle number, starts from 1
         c = int(re.findall(pat_c, image_file)[0]) # channel number, starts from 1
         marker_idx = (t-1)*args.num_channels_per_cycle + (c-1) # which marker index this image refers to
+        if marker_idx not in marker_indices:
+            continue
         score_idx = list(marker_indices).index(marker_idx) # which index we need to use for the marker_scores array
         
-        im = tiffile.imread(os.path.join(args.data_dir, image_file))
+        im = tifffile.imread(os.path.join(args.data_dir, image_file))
         im = preprocessImage(im)
         
         with torch.no_grad():
