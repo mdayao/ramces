@@ -11,7 +11,7 @@ RAnking Markers for CEll Segmentation
 To use RAMCES, first type in the following commands into your command line.
 
 ```
-git clone git@github.com:mdayao/ramces.git
+git clone https://github.com/mdayao/ramces.git
 cd ramces
 ```
 
