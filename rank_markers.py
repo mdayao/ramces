@@ -10,6 +10,7 @@ import os
 import cv2
 import re
 import argparse
+from progress.bar import Bar
 
 from ramces_cnn import SimpleCNN
 
@@ -44,6 +45,7 @@ parser.add_argument('--num-channels-per-cycle', type=int, help = 'the number of 
 parser.add_argument('--no-ranking', help = 'set this flag if ranking has already been calculated. If this is set, then --model-pathargument does not need to be specified', action = 'store_true')
 parser.add_argument('-r', '--rank-path', help = "path to file where marker ranking is to be saved/where marker ranking is saved (if ranking has already been performed). IMPORTANT: the file extension should be '.csv'", required = True)
 parser.add_argument('--gpu', action='store_true', help = 'set if you want to use the GPU')
+parser.add_argument('--indiv-tiles', help='use this argument if you want to save the scores for each individual tile (this ONLY works with multi-tiff files). Provide the directory where these will be saved. Files will be saved as .npy.')
 
 # Weighted image arguments
 parser.add_argument('--create-images', help = 'set this flag to create weighted images based on the top --num_weighted markers. If this flag is set, the --num-weighted argument must be specified.', action = 'store_true')
@@ -81,28 +83,72 @@ if args.no_ranking is False: # Ranking has not been calculated
     image_list = sorted(os.listdir(args.data_dir))
     pat_t = re.compile('(?:t)(...)')
     pat_c = re.compile('(?:c)(...)')
-    
-    # Ranking proteins
-    for i, image_file in enumerate(image_list):
-        
-        t = int(re.findall(pat_t, image_file)[0]) # cycle number, starts from 1
-        c = int(re.findall(pat_c, image_file)[0]) # channel number, starts from 1
-        marker_idx = (t-1)*args.num_channels_per_cycle + (c-1) # which marker index this image refers to
-        if marker_idx not in marker_indices:
-            continue
-        score_idx = list(marker_indices).index(marker_idx) # which index we need to use for the marker_scores array
-        
-        im = tifffile.imread(os.path.join(args.data_dir, image_file))
-        im = preprocessImage(im)
-        
-        with torch.no_grad():
-            output = model(im.view(-1, 4, 128, 128).type('torch.FloatTensor'))
+   
+    bar = Bar('Ranking proteins', max=len(image_list))
 
-        marker_scores[score_idx, 0] += output.max()
-        marker_scores[score_idx, 1] += 1
+    tif_shape = (tifffile.imread(os.path.join(args.data_dir,image_list[0]))).shape
+   
+    # Each individual tif file is a separate marker image
+    if len(tif_shape) == 2:
+        # Ranking proteins
+        for i, image_file in enumerate(image_list):
+            
+            t = int(re.findall(pat_t, image_file)[0]) # cycle number, starts from 1
+            c = int(re.findall(pat_c, image_file)[0]) # channel number, starts from 1
+            marker_idx = (t-1)*args.num_channels_per_cycle + (c-1) # which marker index this image refers to
+            if marker_idx not in marker_indices:
+                bar.next()
+                continue
+            score_idx = list(marker_indices).index(marker_idx) # which index we need to use for the marker_scores array
+            
+            im = tifffile.imread(os.path.join(args.data_dir, image_file))
+            im = preprocessImage(im)
+            
+            with torch.no_grad():
+                output = model(im.view(-1, 4, 128, 128).type('torch.FloatTensor'))
+
+            marker_scores[score_idx, 0] += output.max()
+            marker_scores[score_idx, 1] += 1
+
+            bar.next()
+
+    elif len(tif_shape) == 4: # Each tif file contains all the cycles and channels for the specific tile
+        for i, image_file in enumerate(image_list):
+            if args.indiv_tiles is not None:
+                tile_marker_scores = np.zeros(num_markers)
+            c_iloc = tif_shape.index(args.num_channels_per_cycle)
+            t_iloc = tif_shape.index(args.num_cycles)
+            full_im = tifffile.imread(os.path.join(args.data_dir, image_file))
+            for t in range(args.num_cycles):
+                for c in range(args.num_channels_per_cycle):
+                    marker_idx = (t)*args.num_channels_per_cycle + (c) # which marker index this image refers to
+                    if marker_idx not in marker_indices:
+                        continue
+                    score_idx = list(marker_indices).index(marker_idx) # which index we need to use for the marker_scores array
+
+                    slice_idx = [..., ..., ..., ...]
+                    slice_idx[c_iloc] = c
+                    slice_idx[t_iloc] = t
+                    slice_idx.remove(...)
+                    slice_idx = tuple(slice_idx)
+                    im = full_im[slice_idx]
+                    im = preprocessImage(im)
+
+                    with torch.no_grad():
+                        output = model(im.view(-1, 4, 128, 128).type('torch.FloatTensor'))
+
+                    marker_scores[score_idx, 0] += output.max()
+                    marker_scores[score_idx, 1] += 1
+                    tile_marker_scores[score_idx] = output.max()
+            if args.indiv_tiles is not None:
+                np.save(os.path.join(args.indiv_tiles, f'{image_file.split(".")[0]}_scores.npy'), tile_marker_scores)
+
+            bar.next()
 
     marker_scores[:,0] /= marker_scores[:,1] # averaging over all tiles
     
+    bar.finish()
+
     # Output rank and scores
     sorted_idx = np.argsort(marker_scores[:,0])[::-1] # sorted indices of the marker_scores, len = num_markers
     score_dict = {'Marker': ch_boolean[marker_indices[sorted_idx], 0], 'Score': marker_scores[sorted_idx,0], 'Cycle': marker_indices[sorted_idx]//args.num_channels_per_cycle + 1, 'Channel': marker_indices[sorted_idx]%args.num_channels_per_cycle + 1}

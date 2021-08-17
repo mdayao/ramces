@@ -2,6 +2,7 @@ name: ramces
 channels:
   - pytorch
   - nvidia
+  - conda-forge
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
@@ -69,5 +70,5 @@ dependencies:
   - zstd=1.4.9=haebb681_0
   - pip:
     - opencv-python==4.5.3.56
+    - progress==1.6
     - tifffile==2021.8.8
-prefix: /home/monica/miniconda3/envs/ramces

@@ -37,6 +37,7 @@ cudatoolkit (>=10.2)
 opencv (>=3.4.2)
 pywavelets (>=1.1.1)
 tifffile (>=2021.2.26)
+progress (>=1.6)
 ```
 
 ## Using RAMCES to output marker rankings and weighted images
@@ -57,16 +58,20 @@ Before you can use RAMCES, you will need to have the following files prepared:
 
 2. The image data, CODEX or otherwise (`--data-dir`)
 
-    Put all of the data in a single directory. The data *must* be formatted in a specific way in order to use this script. Currently, it is formatted for images that are acquired in cycles (e.g. CODEX). In a future update of this repository, the allowed data input will be more flexible to accommodate a range of data formats.
+    Put all of the data in a single directory. The data *must* be formatted in one of the following ways. A future update of this repository will allow for a wider range of data formats, but for now it is optimized for CODEX images taken in cycles.
     
-    - There must be a single 2D TIFF file for each marker/protein for every tile in the dataset. This means that if there are 16 image tiles and 20 distinct proteins profiled, there would be 320 TIFF files in the data directory.
-    - Each TIFF filename should contain the following patterns to specify the cycle and channel of each file (and hence specify the marker):
-        - `tXXX` for cycle number, starting at 1
-        - `cXXX` for channel number, starting at 1
-        - The tile number should also be specified in some way, but there is no required pattern for this.
-        - For example, the filename for a marker at cycle 3, channel 2 at tile 5 could be: `mydataset_0005_t003_c002.tif`
+    * **Individual TIFF files for each marker**
+        - There must be a single 2D TIFF file for each marker/protein for every tile in the dataset. This means that if there are 16 image tiles and 20 distinct proteins profiled, there would be 320 TIFF files in the data directory.
+        - Each TIFF filename should contain the following patterns to specify the cycle and channel of each file (and hence specify the marker):
+            - `tXXX` for cycle number, starting at 1
+            - `cXXX` for channel number, starting at 1
+            - The tile number should also be specified in some way, but there is no required pattern for this.
+            - For example, the filename for a marker at cycle 3, channel 2 at tile 5 could be: `mydataset_0005_t003_c002.tif`
+    * **Multi-channel TIFF files**
+        - There is a single 4D TIFF file for each tile in the dataset. The shape can be either `(cycle, channel, height, width)` or `(channel, cycle, height, width)`. For example, if there are 16 cycles and 4 channels, then a valid file dimension/shape would be `(16, 4, height, width)`. 
+        - There is no specific filename format required in this case. However, each file should have the same shape and channel ordering.
 
-    Note: This setup assumes that the images are already at the optimal/most focused z-plane. 
+    Note: This setup assumes that the images are already at the optimal/most focused z-plane.
 
 3. A CSV file with two columns listing the marker channel name and whether the channel should be scored by RAMCES (`--channels`)
 
