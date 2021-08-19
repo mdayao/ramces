@@ -168,6 +168,7 @@ if args.create_images:
     print()
     print('Creating weighted images based on the top {} markers'.format(args.num_weighted))
 
+    
     top_weights = np.zeros((args.num_weighted, 3))
     if args.exclude is not None:
         sorted_idx = np.delete(sorted_idx, np.array(args.exclude)-1)
@@ -180,40 +181,77 @@ if args.create_images:
     pat_t = re.compile('(?:t)(...)')
     pat_c = re.compile('(?:c)(...)')
 
+    tif_shape = (tifffile.imread(os.path.join(args.data_dir,image_list[0]))).shape
+    # Each individual tif file is a separate marker image
+    if len(tif_shape) == 2:
+        req_pat = re.compile('(t\d{3}.c\d{3}|c\d{3}.t\d{3})', flags = re.IGNORECASE)
+        tc_pat = re.findall(req_pat, image_list[0])[0]
+        _, tif_ext = os.path.splitext(image_list[0])
+        tile_ids = []
 
-    req_pat = re.compile('(t\d{3}.c\d{3}|c\d{3}.t\d{3})', flags = re.IGNORECASE)
-    tc_pat = re.findall(req_pat, image_list[0])[0]
-    _, tif_ext = os.path.splitext(image_list[0])
-    tile_ids = []
+        for i, image_file in enumerate(image_list):
+            tile_ids.append(''.join(re.sub(req_pat, '', image_file).split('.')[:-1]))
+        
+        if not os.path.exists(args.output_weighted):
+            os.makedirs(args.output_weighted)
 
-    for i, image_file in enumerate(image_list):
-        tile_ids.append(''.join(re.sub(req_pat, '', image_file).split('.')[:-1]))
-    
-    if not os.path.exists(args.output_weighted):
-        os.makedirs(args.output_weighted)
-
-    tile_ids = list(set(tile_ids))
-    for tile_id in tile_ids:
-        paths = []
-        for marker_i in range(args.num_weighted):
-            t = int(top_weights[marker_i, 1])
-            c = int(top_weights[marker_i, 2])
-            tc_pat = re.sub(r'(?:t)(\d{3})', f't{t:03d}', tc_pat)
-            tc_pat = re.sub(r'(?:c)(\d{3})', f'c{c:03d}', tc_pat)
+        tile_ids = list(set(tile_ids))
+        bar = Bar('Saving weighted images', max=len(tile_ids))
+        for tile_id in tile_ids:
+            paths = []
+            for marker_i in range(args.num_weighted):
+                t = int(top_weights[marker_i, 1])
+                c = int(top_weights[marker_i, 2])
+                tc_pat = re.sub(r'(?:t)(\d{3})', f't{t:03d}', tc_pat)
+                tc_pat = re.sub(r'(?:c)(\d{3})', f'c{c:03d}', tc_pat)
+                
+                paths.append(f'{tile_id}{tc_pat}{tif_ext}')
+            ims = [tifffile.imread(os.path.join(args.data_dir, path)) for path in paths]
             
-            paths.append(f'{tile_id}{tc_pat}{tif_ext}')
-        ims = [tifffile.imread(os.path.join(args.data_dir, path)) for path in paths]
+            weighted_num = np.sum(np.array( [top_weights[i,0]*ims[i] for i in range(args.num_weighted)] ), 0)
+            weighted_norm = np.sum(top_weights[:,0])
         
-        weighted_num = np.sum(np.array( [top_weights[i,0]*ims[i] for i in range(args.num_weighted)] ), 0)
-        weighted_norm = np.sum(top_weights[:,0])
-    
-        weighted_im = weighted_num/weighted_norm
-        weighted_im = np.asarray(weighted_im,dtype=ims[0].dtype)
+            weighted_im = weighted_num/weighted_norm
+            weighted_im = np.asarray(weighted_im,dtype=ims[0].dtype)
 
-        weighted_path = os.path.join(args.output_weighted,f'{tile_id}weighted{tif_ext}') 
+            weighted_path = os.path.join(args.output_weighted,f'{tile_id}weighted{tif_ext}') 
+            
+            with tifffile.TiffWriter(weighted_path) as tif:
+                tif.save(weighted_im)
+            bar.next()
+        bar.finish()
+
+    elif len(tif_shape) == 4: # Each tif file contains all the cycles and channels for the specific tile
+        bar = Bar('Saving weighted images', max=len(image_list))
+        c_iloc = tif_shape.index(args.num_channels_per_cycle)
+        t_iloc = tif_shape.index(args.num_cycles)
+        _, tif_ext = os.path.splitext(image_list[0])
+        for i, image_file in enumerate(image_list):
+            tile_id = image_file.split('.')[0]
+            full_im = tifffile.imread(os.path.join(args.data_dir, image_file))
+            indiv_ims = [None]*args.num_weighted
+            for marker_i in range(args.num_weighted):
+                t = int(top_weights[marker_i, 1])
+                c = int(top_weights[marker_i, 2])
+                slice_idx = [..., ..., ..., ...]
+                slice_idx[c_iloc] = c-1
+                slice_idx[t_iloc] = t-1
+                slice_idx.remove(...)
+                slice_idx = tuple(slice_idx)
+                indiv_ims[marker_i] = full_im[slice_idx]
+
+            weighted_num = np.sum(np.array( [top_weights[i,0]*indiv_ims[i] for i in range(args.num_weighted)] ), 0)
+            weighted_norm = np.sum(top_weights[:,0])
         
-        with tifffile.TiffWriter(weighted_path) as tif:
-            tif.save(weighted_im)
+            weighted_im = weighted_num/weighted_norm
+            weighted_im = np.asarray(weighted_im,dtype=indiv_ims[0].dtype)
+
+            weighted_path = os.path.join(args.output_weighted,f'{tile_id}weighted{tif_ext}') 
+            
+            with tifffile.TiffWriter(weighted_path) as tif:
+                tif.save(weighted_im) 
+            bar.next()
+        bar.finish()
 
     print()
     print(f'Weighted images saved to {args.output_weighted}')
